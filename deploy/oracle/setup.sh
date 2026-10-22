@@ -13,7 +13,17 @@ step() { printf '\n\033[1m==> %s\033[0m\n' "$*"; }
 
 step "System packages"
 sudo apt-get update -y
-sudo DEBIAN_FRONTEND=noninteractive apt-get install -y git curl build-essential python3 sqlite3 caddy iptables-persistent
+sudo DEBIAN_FRONTEND=noninteractive apt-get install -y git curl gnupg build-essential python3 sqlite3 iptables-persistent
+
+step "Caddy, for HTTPS"
+# From Caddy's own repository: older Ubuntu releases (20.04) do not package it.
+if ! command -v caddy >/dev/null; then
+  curl -1sLf https://dl.cloudsmith.io/public/caddy/stable/gpg.key | sudo gpg --dearmor --yes -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+  curl -1sLf https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt | sudo tee /etc/apt/sources.list.d/caddy-stable.list >/dev/null
+  sudo apt-get update -y
+  sudo apt-get install -y caddy
+fi
+caddy version
 
 step "Timezone (\"today\" is worked out on the server)"
 sudo timedatectl set-timezone Asia/Kolkata
