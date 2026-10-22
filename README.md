@@ -218,6 +218,8 @@ Set `GROQ_MODEL` and `GROQ_VISION_MODEL` accordingly.
 2. For anything beyond a single machine, switch `prisma/schema.prisma` to `postgresql` and point `DATABASE_URL` at your database.
 3. `npx prisma migrate deploy && npm run db:seed && npm run build && npm start`.
 
+**On your own Ubuntu server** (Oracle Cloud Always Free, Hetzner, …): clone the repo and run `bash deploy/oracle/setup.sh your-domain`. It installs Node 22 and Caddy, opens ports 80/443, writes `.env` with a fresh `AUTH_SECRET`, builds, runs Nourish as a systemd service behind HTTPS, and backs the database up nightly. Later releases: `bash deploy/oracle/update.sh`.
+
 Passwords are hashed with scrypt from the standard library; sessions are httpOnly JWT cookies signed with `AUTH_SECRET`. All data is per-user, and every mutation re-checks the session server-side.
 
 ---
