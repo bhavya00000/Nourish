@@ -1,0 +1,185 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+  A quiet, near-monochrome palette. Buttons and headings carry the contrast;
+  colour is reserved for data, so charts and rings read instantly.
+  Light is a warm paper white, dark is a soft ink rather than pure black.
+*/
+:root {
+  --bg: oklch(0.985 0.002 90);
+  --surface: oklch(1 0 0);
+  --surface-2: oklch(0.972 0.003 90);
+  --surface-3: oklch(0.955 0.004 90);
+  --border: oklch(0.915 0.004 90);
+  --border-strong: oklch(0.86 0.005 90);
+  --text: oklch(0.23 0.008 60);
+  --text-muted: oklch(0.55 0.008 60);
+  --text-faint: oklch(0.68 0.006 60);
+  --primary: oklch(0.24 0.01 60);
+  --primary-text: oklch(0.99 0 0);
+
+  --kcal: oklch(0.6 0.13 155);
+  --protein: oklch(0.62 0.12 250);
+  --carbs: oklch(0.72 0.13 75);
+  --fat: oklch(0.66 0.13 15);
+  --water: oklch(0.68 0.1 220);
+  --danger: oklch(0.58 0.17 25);
+  --warning: oklch(0.72 0.13 75);
+  --success: oklch(0.6 0.13 155);
+
+  --ring: oklch(0.6 0.13 155 / 0.35);
+  --shadow-card: 0 1px 2px oklch(0.2 0.01 60 / 0.04), 0 1px 3px oklch(0.2 0.01 60 / 0.03);
+  --shadow-pop: 0 8px 30px oklch(0.2 0.01 60 / 0.1), 0 2px 8px oklch(0.2 0.01 60 / 0.06);
+}
+
+.dark {
+  --bg: oklch(0.17 0.005 70);
+  --surface: oklch(0.205 0.006 70);
+  --surface-2: oklch(0.24 0.007 70);
+  --surface-3: oklch(0.28 0.008 70);
+  --border: oklch(0.3 0.007 70);
+  --border-strong: oklch(0.38 0.008 70);
+  --text: oklch(0.94 0.004 80);
+  --text-muted: oklch(0.7 0.008 80);
+  --text-faint: oklch(0.56 0.008 80);
+  --primary: oklch(0.94 0.004 80);
+  --primary-text: oklch(0.19 0.006 70);
+
+  --kcal: oklch(0.75 0.15 155);
+  --protein: oklch(0.72 0.13 250);
+  --carbs: oklch(0.8 0.13 75);
+  --fat: oklch(0.74 0.14 15);
+  --water: oklch(0.75 0.11 220);
+  --danger: oklch(0.68 0.17 25);
+  --warning: oklch(0.8 0.13 75);
+  --success: oklch(0.75 0.15 155);
+
+  --ring: oklch(0.75 0.15 155 / 0.35);
+  --shadow-card: 0 1px 2px oklch(0 0 0 / 0.3);
+  --shadow-pop: 0 12px 40px oklch(0 0 0 / 0.45), 0 2px 10px oklch(0 0 0 / 0.3);
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-text: var(--text);
+  --color-muted: var(--text-muted);
+  --color-faint: var(--text-faint);
+  --color-primary: var(--primary);
+  --color-primary-text: var(--primary-text);
+
+  --color-kcal: var(--kcal);
+  --color-protein: var(--protein);
+  --color-carbs: var(--carbs);
+  --color-fat: var(--fat);
+  --color-water: var(--water);
+  --color-danger: var(--danger);
+  --color-warning: var(--warning);
+  --color-success: var(--success);
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+
+  --radius-card: 0.875rem;
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+  html {
+    color-scheme: light;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  /* Numbers should never jitter as they update. */
+  .tnum {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+  ::selection {
+    background: var(--ring);
+  }
+  :focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+  input,
+  textarea,
+  select,
+  button {
+    font: inherit;
+  }
+  /* Chrome shows a spinner on number inputs that breaks the minimal look. */
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button {
+    appearance: none;
+    margin: 0;
+  }
+  input[type="number"] {
+    appearance: textfield;
+  }
+}
+
+@layer utilities {
+  .animate-in {
+    animation: fade-rise 0.24s cubic-bezier(0.2, 0.8, 0.3, 1) both;
+  }
+  @keyframes fade-rise {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+  }
+  .animate-pop {
+    animation: pop 0.18s cubic-bezier(0.2, 0.8, 0.3, 1) both;
+  }
+  @keyframes pop {
+    from {
+      opacity: 0;
+      transform: scale(0.97);
+    }
+  }
+  .skeleton {
+    background: linear-gradient(90deg, var(--surface-2) 25%, var(--surface-3) 37%, var(--surface-2) 63%);
+    background-size: 400% 100%;
+    animation: shimmer 1.4s ease infinite;
+  }
+  @keyframes shimmer {
+    from {
+      background-position: 100% 0;
+    }
+    to {
+      background-position: 0 0;
+    }
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

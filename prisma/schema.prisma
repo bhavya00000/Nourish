@@ -1,0 +1,390 @@
+// SQLite by default so the app runs with no external services.
+// Swap the provider to postgresql and change DATABASE_URL to deploy.
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  createdAt    DateTime @default(now())
+
+  profile     Profile?
+  goal        Goal?
+  entries     Entry[]
+  foods       Food[]
+  recipes     Recipe[]
+  weights     WeightLog[]
+  days        DayLog[]
+  achievements Achievement[]
+  aiSetting   AiSetting?
+  measurements Measurement[]
+  healthTokens HealthToken[]
+  healthSyncs  HealthSync[]
+  exercises   Exercise[]
+  workouts    Workout[]
+  routines    Routine[]
+}
+
+/// Per-user AI provider, model and key. The key is encrypted at rest and never
+/// leaves the server; an empty key falls back to the server's own, if it has one.
+model AiSetting {
+  userId      String   @id
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider    String   @default("groq")   // groq | openai | anthropic | google | openrouter | custom
+  model       String   @default("")
+  visionModel String   @default("")
+  baseUrl     String   @default("")       // only for provider = custom
+  apiKeyEnc   String   @default("")       // AES-256-GCM, empty means "use the server key"
+  updatedAt   DateTime @updatedAt
+}
+
+model Profile {
+  userId      String   @id
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  age         Int?
+  sex         String?  // male | female
+  heightCm    Float?
+  weightKg    Float?
+  jobRole     String   @default("desk")     // desk | standing | field | labour
+  gymType     String   @default("none")     // none | weights | cardio | mixed | yoga | sports
+  gymDays     Int      @default(0)
+  walkMinutes Int      @default(0)
+
+  dietType    String   @default("veg")      // veg | eggetarian | nonveg | vegan
+  cuisines    String   @default("indian")
+  allergies   String   @default("")
+  dislikes    String   @default("")
+  extraInfo   String   @default("")
+
+  // Feature: adaptive TDEE learns real maintenance from the data.
+  adaptiveTdee    Boolean @default(true)
+  learnedTdee     Float?
+  learnedAt       DateTime?
+
+  // Feature: eating window / fasting.
+  eatingWindowH   Int     @default(12)
+
+  /// When on, the estimated training burn is removed from the baseline TDEE and
+  /// each day's actually-logged workout burn is added to that day instead.
+  useLoggedWorkouts Boolean @default(false)
+  units           String  @default("metric") // metric | imperial
+  /// When the product tour was finished or skipped; null shows it on the next visit.
+  tourSeenAt      DateTime?
+  updatedAt       DateTime @updatedAt
+}
+
+model Goal {
+  userId         String   @id
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  goalType       String   @default("maintain") // lose | gain | recomp | maintain
+  targetWeight   Float?
+  targetWeeks    Int      @default(24)
+  startWeight    Float?
+  startDate      DateTime @default(now())
+  customCalories Int?
+  updatedAt      DateTime @updatedAt
+}
+
+/// Built-in foods are seeded with userId = null; anything a user or the AI adds
+/// is scoped to that user.
+model Food {
+  id        String  @id @default(cuid())
+  userId    String?
+  user      User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name      String
+  aliases   String  @default("")
+  kcal      Float   // per 100 g
+  protein   Float   @default(0)
+  carbs     Float   @default(0)
+  fat       Float   @default(0)
+  fiber     Float   @default(0)
+  sugar     Float   @default(0)
+  sodium    Float   @default(0) // mg per 100 g
+
+  units     String  @default("g:1") // "piece:40|g:1"
+  veg       Boolean @default(true)
+  cuisine   String  @default("other")
+  tags      String  @default("")
+  source    String  @default("builtin") // builtin | custom | ai | vision
+  verified  Boolean @default(false)
+  createdAt DateTime @default(now())
+
+  entries        Entry[]
+  recipeItems    RecipeItem[]
+
+  @@index([userId])
+  @@index([name])
+}
+
+model Recipe {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  kind      String   @default("recipe") // recipe (cooked dish) | template (a saved meal)
+  meal      String?  // suggested meal slot for templates
+  servings  Float    @default(1)
+  notes     String   @default("")
+  createdAt DateTime @default(now())
+  items     RecipeItem[]
+
+  @@index([userId])
+}
+
+model RecipeItem {
+  id       String @id @default(cuid())
+  recipeId String
+  recipe   Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  foodId   String
+  food     Food   @relation(fields: [foodId], references: [id], onDelete: Cascade)
+  quantity Float
+  unit     String
+
+  @@index([recipeId])
+}
+
+model Entry {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  foodId    String?
+  food      Food?    @relation(fields: [foodId], references: [id], onDelete: SetNull)
+
+  date      String   // YYYY-MM-DD, the user's local day
+  meal      String   // breakfast | lunch | snacks | dinner | event
+  rawText   String   @default("")
+  foodName  String
+  quantity  Float
+  unit      String
+  grams     Float
+
+  kcal      Float
+  protein   Float @default(0)
+  carbs     Float @default(0)
+  fat       Float @default(0)
+  fiber     Float @default(0)
+  sugar     Float @default(0)
+  sodium    Float @default(0)
+
+  source    String   @default("builtin") // builtin | custom | ai | vision | recipe
+  eatenAt   DateTime @default(now())     // drives the eating-window feature
+  createdAt DateTime @default(now())
+
+  @@index([userId, date])
+}
+
+model WeightLog {
+  id       String @id @default(cuid())
+  userId   String
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date     String
+  weightKg Float
+
+  @@unique([userId, date])
+  @@index([userId])
+}
+
+/// Per-day extras that are not food entries.
+model DayLog {
+  id      String @id @default(cuid())
+  userId  String
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date    String
+  waterMl Int    @default(0)
+  note    String @default("")
+  mood    String @default("")
+
+  /// Feature: steps and sleep. Steps feed the day's energy burn directly.
+  steps     Int   @default(0)
+  sleepHours Float @default(0)
+
+  /// Measured by a phone or watch and synced from a health app. Active energy,
+  /// when present, replaces the step and workout estimates for the day.
+  activeKcal  Float?
+  restingKcal Float?
+  restingHr   Float?
+  distanceKm  Float?
+  /// Where steps/sleep/energy came from: "" (typed in), "Apple Health", "Health Connect", "CSV"…
+  healthSource String   @default("")
+  syncedAt     DateTime?
+
+  @@unique([userId, date])
+}
+
+/// Feature: body measurements. Weight alone hides recomposition; a waist that
+/// is shrinking while the scale holds still is the clearest sign it is working.
+model Measurement {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date      String
+  waistCm   Float?
+  chestCm   Float?
+  hipsCm    Float?
+  armCm     Float?
+  thighCm   Float?
+  bodyFatPct Float?
+  notes     String   @default("")
+
+  @@unique([userId, date])
+  @@index([userId])
+}
+
+model Achievement {
+  id       String   @id @default(cuid())
+  userId   String
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  key      String
+  earnedAt DateTime @default(now())
+
+  @@unique([userId, key])
+}
+
+
+// ---------------------------------------------------------------- training
+
+/// Built-in exercises are seeded with userId = null; anything a user or the AI
+/// adds is scoped to that user, mirroring how foods work.
+model Exercise {
+  id         String  @id @default(cuid())
+  userId     String?
+  user       User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name       String
+  aliases    String  @default("")
+  category   String  @default("full")   // push | pull | legs | core | cardio | mobility | full
+  muscles    String  @default("")
+  equipment  String  @default("bodyweight")
+  isCardio   Boolean @default(false)
+  /// Metabolic equivalent, used to estimate calories burnt from bodyweight and time.
+  met        Float   @default(5)
+  source     String  @default("builtin") // builtin | custom | ai
+  createdAt  DateTime @default(now())
+
+  sets         WorkoutSet[]
+  routineItems RoutineItem[]
+
+  @@index([userId])
+  @@index([name])
+}
+
+model Workout {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  date        String   // YYYY-MM-DD, the user's local day
+  name        String   @default("")
+  type        String   @default("strength") // strength | cardio | mixed | class
+  startedAt   DateTime @default(now())
+  durationMin Int      @default(0)
+  kcal        Float    @default(0)
+  rpe         Int?
+  notes       String   @default("")
+  rawText     String   @default("")
+  /// "manual" or the health app it was synced from.
+  source      String   @default("manual")
+  /// Stable id from the health app, so re-syncing never duplicates a workout.
+  externalId  String?
+  distanceKm  Float?
+  createdAt   DateTime @default(now())
+
+  sets        WorkoutSet[]
+
+  @@unique([userId, externalId])
+  @@index([userId, date])
+}
+
+model WorkoutSet {
+  id          String   @id @default(cuid())
+  workoutId   String
+  workout     Workout  @relation(fields: [workoutId], references: [id], onDelete: Cascade)
+  exerciseId  String
+  exercise    Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+
+  position    Int      @default(0)
+  setNumber   Int      @default(1)
+  reps        Int?
+  weightKg    Float?
+  distanceKm  Float?
+  durationMin Float?
+  rpe         Int?
+  isWarmup    Boolean  @default(false)
+  kcal        Float    @default(0)
+
+  @@index([workoutId])
+  @@index([exerciseId])
+}
+
+/// A saved session — "Push A" — that can be logged in one tap.
+model Routine {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  focus     String   @default("")   // push | pull | legs | cardio | full …
+  notes     String   @default("")
+  createdAt DateTime @default(now())
+  items     RoutineItem[]
+
+  @@index([userId])
+}
+
+model RoutineItem {
+  id          String   @id @default(cuid())
+  routineId   String
+  routine     Routine  @relation(fields: [routineId], references: [id], onDelete: Cascade)
+  exerciseId  String
+  exercise    Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  position    Int      @default(0)
+  sets        Int      @default(3)
+  reps        Int?
+  weightKg    Float?
+  durationMin Float?
+
+  @@index([routineId])
+}
+
+
+// ---------------------------------------------------------------- health sync
+
+/// A personal access token a phone automation uses to push health data.
+/// Only a SHA-256 hash is stored; the token itself is shown once.
+model HealthToken {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  label      String
+  prefix     String    // first characters, so the user can tell tokens apart
+  tokenHash  String    @unique
+  lastUsedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId])
+}
+
+/// One row per sync or import, so the user can see what arrived and when.
+model HealthSync {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  source    String
+  method    String   // push | import
+  days      Int      @default(0)
+  workouts  Int      @default(0)
+  summary   String   @default("")
+  error     String   @default("")
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
